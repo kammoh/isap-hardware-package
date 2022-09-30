@@ -26,7 +26,6 @@ clock.port = "clk"
 [tb]
 top = 'LWC_TB'
 sources = [
-	"src_tb/v1/LWC_config_tb.vhd",
 	"src_tb/LWC_TB_2pass_uut.vhd",
 	"src_tb/LWC_TB.vhd"
 ]
@@ -35,6 +34,7 @@ sources = [
 G_FNAME_PDI.file = "KAT/v1/pdi.txt"
 G_FNAME_SDI.file = "KAT/v1/sdi.txt"
 G_FNAME_DO.file = "KAT/v1/do.txt"
+G_TEST_MODE = 4
 
 [lwc]
 aead.algorithm = "isapa128av20"
