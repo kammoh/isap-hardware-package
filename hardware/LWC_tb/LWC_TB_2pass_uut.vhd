@@ -3,7 +3,7 @@ use ieee.std_logic_1164.all;
 
 use work.NIST_LWAPI_pkg.all;
 
-entity LWC_TB_2pass_uut is
+entity LWC is
     generic (
           G_MAX_SEGMENT_BYTES : integer := 4 * 1024
     );
@@ -23,7 +23,7 @@ entity LWC_TB_2pass_uut is
     );
 end entity;
 
-architecture structural of LWC_TB_2pass_uut is
+architecture structural of LWC is
 
     --! fdi/o
     signal fdi_data             : std_logic_vector(W-1 downto 0);

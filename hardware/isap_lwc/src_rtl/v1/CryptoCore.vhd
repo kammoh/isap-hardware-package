@@ -27,7 +27,6 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-USE ieee.std_logic_misc.ALL;
 USE work.NIST_LWAPI_pkg.ALL;
 USE work.design_pkg.ALL;
 
@@ -423,7 +422,7 @@ ARCHITECTURE behavioral OF CryptoCore_2pass IS
 	CONSTANT BLOCK_WORDS_C : INTEGER := get_words(p_rH, CCW);
 	CONSTANT TAG_WORDS_C : INTEGER := get_words(p_k, CCW);
 	CONSTANT KEY_WORDS_C : INTEGER := get_words(p_k, CCW);
-    CONSTANT STATE_WORDS_C : INTEGER := get_words(p_n, CCW);
+    -- CONSTANT STATE_WORDS_C : INTEGER := get_words(p_n, CCW);
 
 	---------------------------------------------------------------------------
 	--! State Signals
@@ -485,7 +484,7 @@ ARCHITECTURE behavioral OF CryptoCore_2pass IS
 	SIGNAL bdo_type_s : std_logic_vector(3 DOWNTO 0);
 	SIGNAL end_of_block_s : std_logic;
 	SIGNAL msg_auth_valid_s : std_logic;
-    SIGNAL bdi_pad_loc_s : std_logic_vector(CCWdiv8 - 1 DOWNTO 0);
+    -- SIGNAL bdi_pad_loc_s : std_logic_vector(CCWdiv8 - 1 DOWNTO 0);
     SIGNAL bdoo_s : std_logic_vector(CCW - 1 DOWNTO 0);
 
 	-- Internal flags
@@ -546,7 +545,7 @@ BEGIN
 	key_s <= reverse_byte(key);
 	bdi_s <= reverse_byte(bdi);
 	bdi_valid_bytes_s <= reverse_bit(bdi_valid_bytes);
-    bdi_pad_loc_s <= reverse_bit(bdi_pad_loc);
+    -- bdi_pad_loc_s <= reverse_bit(bdi_pad_loc);
 	key_ready <= key_ready_s;
 	bdi_ready <= bdi_ready_s;
 	bdo <= reverse_byte(bdo_s);
@@ -555,7 +554,7 @@ BEGIN
 	bdo_type <= bdo_type_s;
 	end_of_block <= end_of_block_s;
 	msg_auth <= msg_auth_s;
-	msg_auth_valid <= msg_auth_valid_s;
+	-- msg_auth_valid <= msg_auth_valid_s;
 	-- decrypt_out <= '1' WHEN isap_auth_encdec_s = AUTH_DEC ELSE '0';
 	
 	----------------------------------------------------------------------------
@@ -587,7 +586,7 @@ BEGIN
 	--! Ascon-p instantiation
 	---------------------------------------------------------------------------
 	g_asconp : IF ((ISAP_TYPE = ISAPA128) OR (ISAP_TYPE = ISAPA128A)) GENERATE
-		i_asconp : ENTITY work.asconp
+		i_asconp : ENTITY work.Asconp
 			PORT MAP(
 				state_in => perm_in_s,
 				rcon => isap_cnt_s(3 DOWNTO 0),
@@ -610,7 +609,7 @@ BEGIN
 	----------------------------------------------------------------------------
 	--! Permutation input multiplexer
 	----------------------------------------------------------------------------
-	p_asconp_mux : PROCESS (isap_ctrl_s, isap_state_s, isap_y_s, isap_cnt_y_s)
+	p_asconp_mux : PROCESS (isap_ctrl_s, isap_state_s, isap_y_s)
 	BEGIN
 		CASE isap_ctrl_s IS
 		
@@ -645,7 +644,7 @@ BEGIN
 	----------------------------------------------------------------------------
 	--! fifo out valid bytes
 	----------------------------------------------------------------------------
-	p_fifo_val_bytes : PROCESS (fifo_last_word_valid_bytes_s, fifo_words_s,fifo_valid_bytes_s)
+	p_fifo_val_bytes : PROCESS (fifo_last_word_valid_bytes_s, fifo_words_s,fifo_valid_bytes_s, fifo_dout_valid_s)
 	BEGIN
 		CASE fifo_words_s IS
 		
@@ -672,7 +671,9 @@ BEGIN
 	END PROCESS p_fifo_val_bytes;
     
     -- Quick fix for dynamic slicing 2
-    p_CASE2 : process (word_idx_s,isap_state_s,state_s,bdi_valid,bdi_s,isap_auth_encdec_s,bdi_valid_bytes_s,bdi_pad_loc_s,bdoo_s,bdi_eot,bdi_partial_s,fifo_dout_s,fifo_words_s,fifo_eoi,fifo_partial)
+    p_CASE2 : process (word_idx_s,isap_state_s,state_s,bdi_s,isap_auth_encdec_s,
+		bdi_valid_bytes_s,bdoo_s,bdi_eot,bdi_partial_s,fifo_dout_s,
+		fifo_eoi,fifo_partial, fifo_valid_bytes_s)
         variable pad1 : STD_LOGIC_VECTOR(CCW-1 DOWNTO 0);
         variable pad2 : STD_LOGIC_VECTOR(CCW-1 DOWNTO 0);
     begin
@@ -806,11 +807,13 @@ BEGIN
 	----------------------------------------------------------------------------
 	p_next_state : PROCESS (state_s, key_valid, key_ready_s, key_update, bdi_valid, fifo_din_ready_s, pad_added_s,
 		bdi_ready_s, bdi_eot, bdi_eoi, bdi_type, eoi_s, eot_s, word_idx_s, isap_auth_encdec_s, bdo_valid_s, bdo_ready, msg_auth_s,
-		msg_auth_valid_s, msg_auth_ready, bdi_partial_s, isap_cnt_s, isap_cnt_y_s, isap_encmac_s, fifo_dout_valid_s, fifo_dout_ready_s, fifo_words_s,hash_s,empty_hash_s)
+		msg_auth_ready, isap_cnt_s, isap_cnt_y_s, isap_encmac_s, fifo_dout_valid_s,
+		fifo_dout_ready_s, fifo_words_s, hash_s, empty_hash_s, hash_in, hash_cnt_s)
 	BEGIN
 
 		-- Default values preventing latches
 		n_state_s <= state_s;
+		msg_auth_valid <= '0';
 
 		CASE state_s IS
 			WHEN IDLE =>
@@ -936,16 +939,20 @@ BEGIN
 
 			WHEN ISAP_MAC_WAIT_INPUT =>
 				-- Wait until we know if ad needs to be absorbed.
-				IF (bdi_valid = '1') THEN
-					IF (bdi_type = HDR_AD) THEN
-						n_state_s <= ISAP_MAC_ABSORB_AD;
-					ELSE
+				if eoi_s = '1' then
+					n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
+				else
+					IF (bdi_valid = '1') THEN
+						IF (bdi_type = HDR_AD) THEN
+							n_state_s <= ISAP_MAC_ABSORB_AD;
+						ELSE
+							n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
+						END IF;
+					END IF;
+					IF (key_valid = '1') THEN
 						n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
 					END IF;
-				END IF;
-				IF (key_valid = '1') THEN
-					n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
-				END IF;
+				end if;
 
 			WHEN ISAP_MAC_ABSORB_AD =>
 				-- Wait until last word of AD is signaled.
@@ -1101,7 +1108,8 @@ BEGIN
 
 			WHEN WAIT_ACK =>
 				-- Wait until message authentication is acknowledged.
-				IF (msg_auth_valid_s = '1' AND msg_auth_ready = '1') THEN
+				msg_auth_valid <= '1';
+				IF (msg_auth_ready = '1') THEN
 					IF (msg_auth_s = '1' AND fifo_words_s > 0) THEN
 						n_state_s <= ISAP_RK_SETUP_STATE;
 					ELSE
@@ -1160,7 +1168,8 @@ BEGIN
 	----------------------------------------------------------------------------
 	p_decoder : PROCESS (state_s, key_valid, key_update, update_key_s, eoi_s, eot_s, bdi_eot,
 		bdi_s, bdi_eoi, bdi_valid, bdi_type, decrypt_in, isap_auth_encdec_s, bdi_ready_s,
-		bdo_ready, word_idx_s, msg_auth_s, isap_cnt_s, fifo_words_s, fifo_dout_valid_s, fifo_dout_ready_s, fifo_din_ready_s,empty_hash_s,hash_s)
+		bdo_ready, msg_auth_s, isap_cnt_s, fifo_words_s, fifo_dout_valid_s, fifo_dout_ready_s,
+		fifo_din_ready_s, empty_hash_s,hash_s, hash_in, bdi_size, isap_state_cur_word_s)
 	BEGIN
 		-- Default values preventing latches
 		key_ready_s <= '0';

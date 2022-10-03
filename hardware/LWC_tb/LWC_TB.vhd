@@ -291,7 +291,7 @@ begin
     --/+
     -- uut : LWC_SCA
     --/-
-    uut : LWC_TB_2pass_uut
+    uut : LWC
         port map(
             clk       => clk,
             rst       => rst,
@@ -365,7 +365,7 @@ begin
                         report "Error: RDI line is shorter than RW " severity failure;
                         exit;           -- exit the loop
                     end if;
-                    lwc_hread(rdi_line, rdi_vec, read_ok);
+                    hread(rdi_line, rdi_vec, read_ok);
                     if not read_ok then
                         report "Error while reading " & G_FNAME_RDI severity failure;
                         exit;           -- exit the loop
@@ -409,7 +409,7 @@ begin
             end if;
             if read_ok and (line_head = INS_HEAD or line_head = HDR_HEAD or line_head = DAT_HEAD) then
                 loop
-                    lwc_hread(line_data, word_block, read_ok);
+                    hread(line_data, word_block, read_ok);
                     if not read_ok then
                         exit;
                     end if;
@@ -469,7 +469,7 @@ begin
                 read(line_data, line_head, read_ok);
                 if read_ok and (line_head = INS_HEAD or line_head = HDR_HEAD or line_head = DAT_HEAD) then
                     loop
-                        lwc_hread(line_data, word_block, read_ok);
+                        hread(line_data, word_block, read_ok);
                         if not read_ok then
                             exit;
                         end if;
@@ -548,7 +548,7 @@ begin
                 exit;
             elsif preamble = HDR_HEAD or preamble = DAT_HEAD or preamble = STT_HEAD then -- header, data, or status lines
                 loop                    -- processing single line
-                    lwc_hread(line_data, golden_word, read_ok); -- read the rest of the line to word_block
+                    hread(line_data, golden_word, read_ok); -- read the rest of the line to word_block
                     word_count := 1;
                     if not read_ok then
                         exit;
@@ -569,9 +569,9 @@ begin
                     do_sum     := xor_shares(do_data, PDI_SHARES);
                     if not words_match(do_sum, golden_word) then
                         write(failMsg, string'("Test #") & integer'image(testcase) & " MsgID: " & integer'image(msgid) & " Line: " & integer'image(line_no) & " Word: " & integer'image(word_count));
-                        write(failMsg, string'(" Expected: ") & lwc_to_hstring(golden_word) & "   Received: " & lwc_to_hstring(do_data));
+                        write(failMsg, string'(" Expected: ") & to_hstring(golden_word) & "   Received: " & to_hstring(do_data));
                         if PDI_SHARES > 1 then
-                            write(failMsg, "   Received sum: " & lwc_to_hstring(do_sum));
+                            write(failMsg, "   Received sum: " & to_hstring(do_sum));
                         end if;
                         write(logMsg, string'("[Error] ") & failMsg.all);
                         report LF & logMsg.all & LF severity error;
@@ -584,7 +584,7 @@ begin
                             exit;
                         end if;
                     else
-                        write(logMsg, string'("[Log]     Expected: ") & lwc_to_hstring(golden_word) & string'(" Received: ") & lwc_to_hstring(do_data) & string'(" Matched!"));
+                        write(logMsg, string'("[Log]     Expected: ") & to_hstring(golden_word) & string'(" Received: ") & to_hstring(do_data) & string'(" Matched!"));
                         writeline(log_file, logMsg);
                     end if;
                     word_count := word_count + 1;
@@ -612,13 +612,13 @@ begin
             elsif preamble = TB_HEAD then
                 current_fail := False;
                 testcase     := testcase + 1;
-                lwc_hread(line_data, tb_block, read_ok);
+                hread(line_data, tb_block, read_ok);
                 if not read_ok then
                     exit;
                 end if;
                 opcode       := tb_block(19 downto 16);
                 msgid        := to_integer(unsigned(tb_block(7 downto 0)));
-                write(logMsg, "Testcase #" & integer'image(testcase) & " MsgID:" & integer'image(testcase) & " Op:");
+                write(logMsg, "Testcase #" & integer'image(testcase) & " MsgID:" & integer'image(msgid) & " Op:");
                 if (opcode = INST_HASH) then
                     write(logMsg, string'("HASH"));
                 else
@@ -627,7 +627,7 @@ begin
                     elsif opcode = INST_DEC then
                         write(logMsg, string'("DEC"));
                     else
-                        write(logMsg, string'("UNKNOWN opcode=") & lwc_to_hstring(opcode));
+                        write(logMsg, string'("UNKNOWN opcode=") & to_hstring(opcode));
                     end if;
                     keyid := to_integer(unsigned(tb_block(15 downto 8)));
                     write(logMsg, string'(" KeyID:") & integer'image(keyid));
