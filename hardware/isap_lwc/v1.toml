@@ -35,15 +35,15 @@ clock.port = "clk"
 # ]
 
 [tb.generics]
-# G_FNAME_PDI.file = "KAT/v1/pdi.txt"
-# G_FNAME_SDI.file = "KAT/v1/sdi.txt"
-# G_FNAME_DO.file =  "KAT/v1/do.txt"
+G_FNAME_PDI.file = "KAT/v1/pdi.txt"
+G_FNAME_SDI.file = "KAT/v1/sdi.txt"
+G_FNAME_DO.file =  "KAT/v1/do.txt"
 # G_FNAME_PDI.file = "BENCH_KAT/ISAP_v1/timing_tests/pdi.txt"
 # G_FNAME_SDI.file = "BENCH_KAT/ISAP_v1/timing_tests/sdi.txt"
 # G_FNAME_DO.file  = "BENCH_KAT/ISAP_v1/timing_tests/do.txt"
-G_FNAME_PDI.file = "ckats_for_verification/pdi.txt"
-G_FNAME_SDI.file = "BENCH_KAT/ISAP_v1/kats_for_verification/sdi.txt"
-G_FNAME_DO.file  = "BENCH_KAT/ISAP_v1/kats_for_verification/do.txt"
+# G_FNAME_PDI.file = "BENCH_KAT/ISAP_v1/kats_for_verification/pdi.txt"
+# G_FNAME_SDI.file = "BENCH_KAT/ISAP_v1/kats_for_verification/sdi.txt"
+# G_FNAME_DO.file  = "BENCH_KAT/ISAP_v1/kats_for_verification/do.txt"
 G_TEST_MODE = 0
 G_MAX_FAILURES = 0
 G_TIMEOUT_CYCLES = 10_000
@@ -55,6 +55,7 @@ G_RANDOM_STALL = true              # true
 
 [lwc]
 aead.algorithm = "isapa128av20"
+aead.key_reuse = true
 aead.input_sequence.encrypt = ['npub', 'pt', 'ad', 'tag']
 aead.input_sequence.decrypt = ['npub', 'ad', 'ct', 'tag']
 hash.algorithm = "asconhashv12"
