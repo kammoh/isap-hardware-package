@@ -377,8 +377,8 @@ ENTITY CryptoCore_2pass IS
 		bdi : IN STD_LOGIC_VECTOR (CCW - 1 DOWNTO 0);
 		bdi_valid : IN STD_LOGIC;
 		bdi_ready : OUT STD_LOGIC;
-		bdi_pad_loc : IN STD_LOGIC_VECTOR (CCWdiv8 - 1 DOWNTO 0);
-		bdi_valid_bytes : IN STD_LOGIC_VECTOR (CCWdiv8 - 1 DOWNTO 0);
+		bdi_pad_loc : IN STD_LOGIC_VECTOR (CCW/8 - 1 DOWNTO 0);
+		bdi_valid_bytes : IN STD_LOGIC_VECTOR (CCW/8 - 1 DOWNTO 0);
 		bdi_size : IN STD_LOGIC_VECTOR (3 - 1 DOWNTO 0);
 		bdi_eot : IN STD_LOGIC;
 		bdi_eoi : IN STD_LOGIC;
@@ -393,7 +393,7 @@ ENTITY CryptoCore_2pass IS
 		bdo_valid : OUT STD_LOGIC;
 		bdo_ready : IN STD_LOGIC;
 		bdo_type : OUT STD_LOGIC_VECTOR (4 - 1 DOWNTO 0);
-		bdo_valid_bytes : OUT STD_LOGIC_VECTOR (CCWdiv8 - 1 DOWNTO 0);
+		bdo_valid_bytes : OUT STD_LOGIC_VECTOR (CCW/8 - 1 DOWNTO 0);
 		end_of_block : OUT STD_LOGIC;
 		-- decrypt_out : OUT STD_LOGIC;
 		msg_auth_valid : OUT STD_LOGIC;
@@ -422,7 +422,6 @@ ARCHITECTURE behavioral OF CryptoCore_2pass IS
 	CONSTANT BLOCK_WORDS_C : INTEGER := get_words(p_rH, CCW);
 	CONSTANT TAG_WORDS_C : INTEGER := get_words(p_k, CCW);
 	CONSTANT KEY_WORDS_C : INTEGER := get_words(p_k, CCW);
-    -- CONSTANT STATE_WORDS_C : INTEGER := get_words(p_n, CCW);
 
 	---------------------------------------------------------------------------
 	--! State Signals
@@ -475,16 +474,15 @@ ARCHITECTURE behavioral OF CryptoCore_2pass IS
 	SIGNAL key_ready_s : std_logic;
 	SIGNAL bdi_ready_s : std_logic;
 	SIGNAL bdi_s : std_logic_vector(CCW - 1 DOWNTO 0);
-	SIGNAL bdi_valid_bytes_s : std_logic_vector(CCWdiv8 - 1 DOWNTO 0);
+	SIGNAL bdi_valid_bytes_s : std_logic_vector(CCW/8 - 1 DOWNTO 0);
 
 	-- Internal port signals: Output
 	SIGNAL bdo_s : std_logic_vector(CCW - 1 DOWNTO 0);
-	SIGNAL bdo_valid_bytes_s : std_logic_vector(CCWdiv8 - 1 DOWNTO 0);
+	SIGNAL bdo_valid_bytes_s : std_logic_vector(CCW/8 - 1 DOWNTO 0);
 	SIGNAL bdo_valid_s : std_logic;
 	SIGNAL bdo_type_s : std_logic_vector(3 DOWNTO 0);
 	SIGNAL end_of_block_s : std_logic;
-	SIGNAL msg_auth_valid_s : std_logic;
-    -- SIGNAL bdi_pad_loc_s : std_logic_vector(CCWdiv8 - 1 DOWNTO 0);
+    -- SIGNAL bdi_pad_loc_s : std_logic_vector(CCW/8 - 1 DOWNTO 0);
     SIGNAL bdoo_s : std_logic_vector(CCW - 1 DOWNTO 0);
 
 	-- Internal flags
@@ -554,7 +552,6 @@ BEGIN
 	bdo_type <= bdo_type_s;
 	end_of_block <= end_of_block_s;
 	msg_auth <= msg_auth_s;
-	-- msg_auth_valid <= msg_auth_valid_s;
 	-- decrypt_out <= '1' WHEN isap_auth_encdec_s = AUTH_DEC ELSE '0';
 	
 	----------------------------------------------------------------------------
@@ -1174,7 +1171,6 @@ BEGIN
 		-- Default values preventing latches
 		key_ready_s <= '0';
 		bdi_ready_s <= '0';
-		msg_auth_valid_s <= '0';
 		n_msg_auth_s <= msg_auth_s;
 		n_update_key_s <= update_key_s;
 		n_isap_auth_encdec_s <= isap_auth_encdec_s;
@@ -1319,7 +1315,7 @@ BEGIN
 
 			WHEN WAIT_ACK =>
 				-- Authentication check is done, "msg_auth_s" is valid
-				msg_auth_valid_s <= '1';
+				NULL;
 
 			WHEN OTHERS =>
 				NULL;

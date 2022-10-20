@@ -1,4 +1,4 @@
-name = "ISAP_v1"
+name = "ISAPa_v1"
 description = "Implementation of isapa128av20 and asconhashv12 with W=32 and CCW=32"
 
 
@@ -23,15 +23,15 @@ sources = [
 	# "src_rtl/LWC/PreProcessor.vhd",
 	# "src_rtl/LWC/PostProcessor.vhd",
 	# "src_rtl/LWC/LWC_2Pass.vhd",
+	"src_rtl/LWC/LWC_2Pass_uut.vhd",
 ]
-# top = 'LWC_2pass'
+top = "LWC"
 clock.port = "clk"
 
 # [tb]
 # top = 'LWC_TB'
 # sources = [
-# 	"/Users/kamyar/src/lwc/LWC/hardware/LWC_tb/LWC_TB_2pass_uut.vhd", 
-# 	"/Users/kamyar/src/lwc/LWC/hardware/LWC_tb/LWC_TB.vhd"
+# 	"../LWC_tb/LWC_TB.vhd"
 # ]
 
 [tb.generics]
