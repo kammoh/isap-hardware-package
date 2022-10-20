@@ -23,7 +23,6 @@ sources = [
 	# "src_rtl/LWC/PreProcessor.vhd",
 	# "src_rtl/LWC/PostProcessor.vhd",
 	# "src_rtl/LWC/LWC_2Pass.vhd",
-	"src_rtl/LWC/LWC_2Pass_uut.vhd",
 ]
 top = "LWC"
 clock.port = "clk"
