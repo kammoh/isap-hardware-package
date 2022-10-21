@@ -3,7 +3,7 @@ description = "Implementation of isapa128av20 and asconhashv12 with W=32 and CCW
 
 
 dependencies = [
-	{ uri = "git+https://github.com/GMUCERG/LWC.git#hardware/LWC_2Pass_32.toml", rtl.pos = 1 },
+    { uri = "git+https://github.com/GMUCERG/LWC.git#hardware/LWC_2Pass_32.toml", rtl.pos = 1 },
 ]
 
 [language]

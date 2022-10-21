@@ -669,8 +669,8 @@ BEGIN
     
     -- Quick fix for dynamic slicing 2
     p_CASE2 : process (word_idx_s,isap_state_s,state_s,bdi_s,isap_auth_encdec_s,
-		bdi_valid_bytes_s,bdoo_s,bdi_eot,bdi_partial_s,fifo_dout_s,
-		fifo_eoi,fifo_partial, fifo_valid_bytes_s)
+			bdi_valid_bytes_s,bdoo_s,bdi_eot,bdi_partial_s,fifo_dout_s,
+			fifo_eoi,fifo_partial, fifo_valid_bytes_s)
         variable pad1 : STD_LOGIC_VECTOR(CCW-1 DOWNTO 0);
         variable pad2 : STD_LOGIC_VECTOR(CCW-1 DOWNTO 0);
     begin

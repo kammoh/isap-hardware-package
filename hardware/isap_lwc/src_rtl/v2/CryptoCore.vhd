@@ -27,7 +27,6 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-USE ieee.std_logic_misc.ALL;
 USE work.NIST_LWAPI_pkg.ALL;
 USE work.design_pkg.ALL;
 
@@ -555,7 +554,6 @@ BEGIN
 	bdo_type <= bdo_type_s;
 	end_of_block <= end_of_block_s;
 	msg_auth <= msg_auth_s;
-	msg_auth_valid <= msg_auth_valid_s;
 	-- decrypt_out <= '1' WHEN isap_auth_encdec_s = AUTH_DEC ELSE '0';
 	
 	----------------------------------------------------------------------------
@@ -645,7 +643,7 @@ BEGIN
 	----------------------------------------------------------------------------
 	--! fifo out valid bytes
 	----------------------------------------------------------------------------
-	p_fifo_val_bytes : PROCESS (fifo_last_word_valid_bytes_s, fifo_words_s,fifo_valid_bytes_s)
+	p_fifo_val_bytes : PROCESS (fifo_last_word_valid_bytes_s, fifo_words_s,fifo_valid_bytes_s, fifo_dout_valid_s)
 	BEGIN
 		CASE fifo_words_s IS
 		
@@ -672,7 +670,7 @@ BEGIN
 	END PROCESS p_fifo_val_bytes;
     
     -- Quick fix for dynamic slicing 2
-    p_CASE2 : process (word_idx_s,isap_state_s,state_s,bdi_valid,bdi_s,isap_auth_encdec_s,bdi_valid_bytes_s,bdi_pad_loc_s,bdoo_s,bdi_eot,bdi_partial_s,fifo_dout_s,fifo_words_s,fifo_eoi,fifo_partial)
+    p_CASE2 : process (word_idx_s,isap_state_s,state_s,bdi_s,isap_auth_encdec_s,bdi_valid_bytes_s,bdoo_s,bdi_eot,bdi_partial_s,fifo_dout_s,fifo_valid_bytes_s,fifo_eoi,fifo_partial)
         variable pad1 : STD_LOGIC_VECTOR(CCW-1 DOWNTO 0);
         variable pad2 : STD_LOGIC_VECTOR(CCW-1 DOWNTO 0);
     begin
@@ -704,38 +702,28 @@ BEGIN
 	----------------------------------------------------------------------------
 	p_fifo_mux : PROCESS (state_s, bdi_s, bdi_masked_s, bdi_ready_s, bdi_valid, isap_auth_encdec_s, bdo_ready, isap_state_cur_word_s)
 	BEGIN
+		fifo_din_s        <= (OTHERS => '0');
+		fifo_din_valid_s  <= '0';
+		fifo_dout_ready_s <= '0';
 		CASE state_s IS
 			WHEN ISAP_ENC_SQUEEZE_BLOCK =>
 				IF (isap_auth_encdec_s = AUTH_DEC) THEN
-					fifo_din_s <= (OTHERS => '0');
-					fifo_din_valid_s <= '0';
 					fifo_dout_ready_s <= bdo_ready;
 				ELSE
 					fifo_din_s <= bdi_masked_s XOR isap_state_cur_word_s;
 					fifo_din_valid_s <= bdi_valid AND bdi_ready_s;
-					fifo_dout_ready_s <= '0';
 				END IF;
 
 			WHEN ISAP_MAC_ABSORB_CT =>
 				IF (isap_auth_encdec_s = AUTH_DEC) THEN
 					fifo_din_s <= bdi_s;
 					fifo_din_valid_s <= bdi_valid;
-					fifo_dout_ready_s <= '0';
 				ELSE
-					fifo_din_s <= (OTHERS => '0');
-					fifo_din_valid_s <= '0';
 					fifo_dout_ready_s <= '1';
 				END IF;
 
-			WHEN EXTRACT_TAG =>
-				fifo_din_s <= (OTHERS => '0');
-				fifo_din_valid_s <= '0';
-				fifo_dout_ready_s <= '0';
-
 			WHEN OTHERS =>
-				fifo_din_s <= (OTHERS => '0');
-				fifo_din_valid_s <= '0';
-				fifo_dout_ready_s <= '0';
+				NULL;
 
 		END CASE;
 	END PROCESS p_fifo_mux;
@@ -744,7 +732,7 @@ BEGIN
 	--! Bdo multiplexer
 	----------------------------------------------------------------------------
 	p_bdo_mux : PROCESS (state_s, bdi_masked_s, word_idx_s, bdi_valid_bytes_s, bdi_valid, bdi_eot, isap_auth_encdec_s, fifo_words_s,
-		fifo_dout_s, fifo_last_word_valid_bytes_s, isap_state_cur_word_s, hash_cnt_s)
+			fifo_dout_s, fifo_last_word_valid_bytes_s, isap_state_cur_word_s, hash_cnt_s)
 	BEGIN
 		CASE state_s IS
 			WHEN ISAP_ENC_SQUEEZE_BLOCK =>
@@ -806,11 +794,12 @@ BEGIN
 	----------------------------------------------------------------------------
 	p_next_state : PROCESS (state_s, key_valid, key_ready_s, key_update, bdi_valid, fifo_din_ready_s, pad_added_s,
 		bdi_ready_s, bdi_eot, bdi_eoi, bdi_type, eoi_s, eot_s, word_idx_s, isap_auth_encdec_s, bdo_valid_s, bdo_ready, msg_auth_s,
-		msg_auth_valid_s, msg_auth_ready, bdi_partial_s, isap_cnt_s, isap_cnt_y_s, isap_encmac_s, fifo_dout_valid_s, fifo_dout_ready_s, fifo_words_s,hash_s,empty_hash_s)
+		msg_auth_ready, isap_cnt_s, isap_cnt_y_s, isap_encmac_s, fifo_dout_valid_s, fifo_dout_ready_s, fifo_words_s,hash_s,empty_hash_s, hash_in, hash_cnt_s)
 	BEGIN
 
 		-- Default values preventing latches
 		n_state_s <= state_s;
+		msg_auth_valid <= '0';
 
 		CASE state_s IS
 			WHEN IDLE =>
@@ -936,16 +925,20 @@ BEGIN
 
 			WHEN ISAP_MAC_WAIT_INPUT =>
 				-- Wait until we know if ad needs to be absorbed.
-				IF (bdi_valid = '1') THEN
-					IF (bdi_type = HDR_AD) THEN
-						n_state_s <= ISAP_MAC_ABSORB_AD;
-					ELSE
+				if eoi_s = '1' then
+					n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
+				else
+					IF (bdi_valid = '1') THEN
+						IF (bdi_type = HDR_AD) THEN
+							n_state_s <= ISAP_MAC_ABSORB_AD;
+						ELSE
+							n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
+						END IF;
+					END IF;
+					IF (key_valid = '1') THEN
 						n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
 					END IF;
-				END IF;
-				IF (key_valid = '1') THEN
-					n_state_s <= ISAP_MAC_ABSORB_AD_PAD;
-				END IF;
+				end if;
 
 			WHEN ISAP_MAC_ABSORB_AD =>
 				-- Wait until last word of AD is signaled.
@@ -1101,7 +1094,8 @@ BEGIN
 
 			WHEN WAIT_ACK =>
 				-- Wait until message authentication is acknowledged.
-				IF (msg_auth_valid_s = '1' AND msg_auth_ready = '1') THEN
+				msg_auth_valid <= '1';
+				IF (msg_auth_ready = '1') THEN
 					IF (msg_auth_s = '1' AND fifo_words_s > 0) THEN
 						n_state_s <= ISAP_RK_SETUP_STATE;
 					ELSE
@@ -1160,12 +1154,12 @@ BEGIN
 	----------------------------------------------------------------------------
 	p_decoder : PROCESS (state_s, key_valid, key_update, update_key_s, eoi_s, eot_s, bdi_eot,
 		bdi_s, bdi_eoi, bdi_valid, bdi_type, decrypt_in, isap_auth_encdec_s, bdi_ready_s,
-		bdo_ready, word_idx_s, msg_auth_s, isap_cnt_s, fifo_words_s, fifo_dout_valid_s, fifo_dout_ready_s, fifo_din_ready_s,empty_hash_s,hash_s)
+		bdo_ready, msg_auth_s, isap_cnt_s, fifo_words_s, fifo_dout_valid_s, fifo_dout_ready_s,
+		fifo_din_ready_s,empty_hash_s,hash_s, hash_in, isap_state_cur_word_s, bdi_size)
 	BEGIN
 		-- Default values preventing latches
 		key_ready_s <= '0';
 		bdi_ready_s <= '0';
-		msg_auth_valid_s <= '0';
 		n_msg_auth_s <= msg_auth_s;
 		n_update_key_s <= update_key_s;
 		n_isap_auth_encdec_s <= isap_auth_encdec_s;
@@ -1220,14 +1214,16 @@ BEGIN
 			WHEN STORE_NONCE =>
 				-- Ready for nonce, remember whether we should do enc or dec. Remember if we will receive more input.
 				bdi_ready_s <= '1';
-				IF (decrypt_in = '1') THEN
-					n_isap_auth_encdec_s <= AUTH_DEC;
-				ELSE
-					n_isap_auth_encdec_s <= AUTH_ENC;
-				END IF;
-				IF (bdi_valid = '1' AND bdi_type = HDR_NPUB AND bdi_eoi = '1') THEN
-					n_eoi_s <= '1';
-				END IF;
+				if bdi_valid = '1' then
+					IF (decrypt_in = '1') THEN
+						n_isap_auth_encdec_s <= AUTH_DEC;
+					ELSE
+						n_isap_auth_encdec_s <= AUTH_ENC;
+					END IF;
+					IF (bdi_type = HDR_NPUB AND bdi_eoi = '1') THEN
+						n_eoi_s <= '1';
+					END IF;
+				end if;
 
 			WHEN ISAP_RK_REKEYING =>
 				-- Absorb one bit of Y then perform sB permutation rounds.
@@ -1310,7 +1306,7 @@ BEGIN
 
 			WHEN WAIT_ACK =>
 				-- Authentication check is done, "msg_auth_s" is valid
-				msg_auth_valid_s <= '1';
+				NULL;
 
 			WHEN OTHERS =>
 				NULL;
