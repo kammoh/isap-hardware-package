@@ -33,8 +33,8 @@ sources = [
     # "../../../LWC/hardware/LWC_rtl/LWC_2Pass.vhd",
     # "../../../LWC/hardware/LWC_rtl/LWC_2Pass_uut.vhd",
 ]
-# top = "LWC"
-# clock.port = "clk"
+top = "LWC"
+clock.port = "clk"
 
 # [tb]
 # top = 'LWC_TB'
